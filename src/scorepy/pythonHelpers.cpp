@@ -6,24 +6,42 @@
 
 namespace scorepy
 {
-std::string_view get_module_name(const PyFrameObject& frame)
+std::string_view get_module_name(PyFrameObject& frame)
 {
+#if PY_VERSION_HEX < 0x030b00f0 // python 3.11.0
     PyObject* module_name = PyDict_GetItemString(frame.f_globals, "__name__");
+#else
+    PyObject* globals = PyFrame_GetGlobals(&frame);
+    PyObject* module_name = PyDict_GetItemString(globals, "__name__");
+#endif
     if (module_name)
         return compat::get_string_as_utf_8(module_name);
 
+#if PY_VERSION_HEX < 0x030b00f0 // python 3.11.0
+    PyCodeObject* code = frame.f_code;
+#else
+
+    PyCodeObject* code = PyFrame_GetCode(&frame);
+    // PyCodeObject* code = frame.f_frame->f_code;
+#endif
     // this is a NUMPY special situation, see NEP-18, and Score-P issue #63
     // TODO: Use string_view/C-String to avoid creating 2 std::strings
-    std::string_view filename = compat::get_string_as_utf_8(frame.f_code->co_filename);
+    std::string_view filename = compat::get_string_as_utf_8(code->co_filename);
     if ((filename.size() > 0) && (filename == "<__array_function__ internals>"))
         return std::string_view("numpy.__array_function__");
     else
         return std::string_view("unkown");
 }
 
-std::string get_file_name(const PyFrameObject& frame)
+std::string get_file_name(PyFrameObject& frame)
 {
-    PyObject* filename = frame.f_code->co_filename;
+#if PY_VERSION_HEX < 0x030b00f0 // python 3.11.0
+    PyCodeObject* code = frame.f_code;
+#else
+    PyCodeObject* code = PyFrame_GetCode(&frame);
+    // PyCodeObject* code = frame.f_frame->f_code;
+#endif
+    PyObject* filename = code->co_filename;
     if (filename == Py_None)
     {
         return "None";

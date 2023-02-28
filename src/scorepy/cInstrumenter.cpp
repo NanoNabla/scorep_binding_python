@@ -114,7 +114,11 @@ bool CInstrumenter::on_event(PyFrameObject& frame, int what, PyObject*)
     {
     case PyTrace_CALL:
     {
+#if PY_VERSION_HEX < 0x030b00f0 // python 3.11.0
         PyCodeObject* code = frame.f_code;
+#else
+        PyCodeObject* code = PyFrame_GetCode(&frame);
+#endif
         bool success = try_region_begin(code);
         if (!success)
         {
@@ -131,7 +135,11 @@ bool CInstrumenter::on_event(PyFrameObject& frame, int what, PyObject*)
     }
     case PyTrace_RETURN:
     {
+#if PY_VERSION_HEX < 0x030b00f0 // python 3.11.0
         PyCodeObject* code = frame.f_code;
+#else
+        PyCodeObject* code = PyFrame_GetCode(&frame);
+#endif
         bool success = try_region_end(code);
         if (!success)
         {
