@@ -131,6 +131,9 @@ bool CInstrumenter::on_event(PyFrameObject& frame, int what, PyObject*)
                 region_begin(name, module_name, file_name, line_number, code);
             }
         }
+#if PY_VERSION_HEX >= 0x030b00f0 // python 3.11.0
+        Py_DECREF(code);
+#endif
         break;
     }
     case PyTrace_RETURN:
@@ -151,6 +154,9 @@ bool CInstrumenter::on_event(PyFrameObject& frame, int what, PyObject*)
                 region_end(name, module_name, code);
             }
         }
+#if PY_VERSION_HEX >= 0x030b00f0 // python 3.11.0
+        Py_DECREF(code);
+#endif
         break;
     }
     }
