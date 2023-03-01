@@ -114,7 +114,7 @@ bool CInstrumenter::on_event(PyFrameObject& frame, int what, PyObject*)
     {
     case PyTrace_CALL:
     {
-#if PY_VERSION_HEX < 0x030b00a0 // python 3.11.0
+#if PY_VERSION_HEX < 0x030900a0 // python 3.11.0
         PyCodeObject* code = frame.f_code;
 #else
         PyCodeObject* code = PyFrame_GetCode(&frame);
@@ -131,14 +131,14 @@ bool CInstrumenter::on_event(PyFrameObject& frame, int what, PyObject*)
                 region_begin(name, module_name, file_name, line_number, code);
             }
         }
-#if PY_VERSION_HEX >= 0x030b00a0 // python 3.11.0
+#if PY_VERSION_HEX >= 0x030900a0 // python 3.11.0
         Py_DECREF(code);
 #endif
         break;
     }
     case PyTrace_RETURN:
     {
-#if PY_VERSION_HEX < 0x030b00a0 // python 3.11.0
+#if PY_VERSION_HEX < 0x030900a0 // python 3.11.0
         PyCodeObject* code = frame.f_code;
 #else
         PyCodeObject* code = PyFrame_GetCode(&frame);
@@ -154,7 +154,7 @@ bool CInstrumenter::on_event(PyFrameObject& frame, int what, PyObject*)
                 region_end(name, module_name, code);
             }
         }
-#if PY_VERSION_HEX >= 0x030b00a0 // python 3.11.0
+#if PY_VERSION_HEX >= 0x030900a0 // python 3.11.0
         Py_DECREF(code);
 #endif
         break;
