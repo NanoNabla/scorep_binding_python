@@ -8,7 +8,7 @@ namespace scorepy
 {
 std::string_view get_module_name(PyFrameObject& frame)
 {
-#if PY_VERSION_HEX < 0x030b00f0 // python 3.11.0
+#if PY_VERSION_HEX < 0x030b00a0 // python 3.11.0
     PyObject* module_name = PyDict_GetItemString(frame.f_globals, "__name__");
 #else
     PyObject* globals = PyFrame_GetGlobals(&frame);
@@ -18,7 +18,7 @@ std::string_view get_module_name(PyFrameObject& frame)
     if (module_name)
         return compat::get_string_as_utf_8(module_name);
 
-#if PY_VERSION_HEX < 0x030b00f0 // python 3.11.0
+#if PY_VERSION_HEX < 0x030b00a0 // python 3.11.0
     PyCodeObject* code = frame.f_code;
 #else
     PyCodeObject* code = PyFrame_GetCode(&frame);
@@ -27,7 +27,7 @@ std::string_view get_module_name(PyFrameObject& frame)
     // TODO: Use string_view/C-String to avoid creating 2 std::strings
     std::string_view filename = compat::get_string_as_utf_8(code->co_filename);
 
-#if PY_VERSION_HEX >= 0x030b00f0 // python 3.11.0
+#if PY_VERSION_HEX >= 0x030b00a0 // python 3.11.0
     Py_DECREF(code);
 #endif
 
@@ -39,7 +39,7 @@ std::string_view get_module_name(PyFrameObject& frame)
 
 std::string get_file_name(PyFrameObject& frame)
 {
-#if PY_VERSION_HEX < 0x030b00f0 // python 3.11.0
+#if PY_VERSION_HEX < 0x030b00a0 // python 3.11.0
     PyCodeObject* code = frame.f_code;
     PyObject* filename = code->co_filename;
 #else
