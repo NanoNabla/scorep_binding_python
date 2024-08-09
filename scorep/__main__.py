@@ -19,11 +19,14 @@ def scorep_main(argv=None):
     prog_argv = []
     parse_scorep_commands = True
 
+    show_help = False
+
     keep_files = False
     verbose = False
     no_default_threads = False
     no_default_compiler = False
     no_instrumenter = False
+
     if scorep.instrumenter.has_c_instrumenter():
         instrumenter_type = "cProfile"
     else:
@@ -34,6 +37,8 @@ def scorep_main(argv=None):
         if parse_scorep_commands:
             if elem == "--":
                 parse_scorep_commands = False
+            if elem == "--help":
+                show_help = True
             elif elem == "--mpi":
                 scorep_config.append("--mpp=mpi")
             elif elem == "--keep-files":
@@ -70,7 +75,10 @@ def scorep_main(argv=None):
     if not no_default_compiler:
         scorep_config.append("--compiler")
 
-    if len(prog_argv) == 0:
+    if show_help:
+        pass
+
+    if len(prog_argv) and not show_help == 0:
         _err_exit("Did not find a script to run")
 
     if os.environ.get("SCOREP_PYTHON_BINDINGS_INITIALISED") != "true":
