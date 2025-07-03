@@ -375,6 +375,7 @@ def test_threads(scorep_env, instrumenter):
 @foreach_instrumenter
 def test_io(scorep_env, instrumenter):
     trace_path = get_trace_path(scorep_env)
+    scorep_env["SCOREP_IO_POSIX"] = "true"
 
     print("start")
     std_out, std_err = utils.call_with_scorep(
@@ -383,7 +384,6 @@ def test_io(scorep_env, instrumenter):
             "--nocompiler",
             "--instrumenter-type=" + instrumenter,
             "--noinstrumenter",
-            "--io=runtime:posix",
         ],
         env=scorep_env,
     )
