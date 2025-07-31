@@ -31,7 +31,7 @@ classifiers=[
   "Programming Language :: Python :: Implementation :: PyPy",
   "Operating System :: POSIX",
   "Operating System :: Unix",
-],
+]
 
 [project.optional-dependencies]
 dev = [
