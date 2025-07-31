@@ -34,14 +34,9 @@ jobs:
       with:
         python-version: ${{matrix.python}}
         architecture: x64
-    - name: Install Python packages
-      run: |
-        pip install --upgrade pip
-        pip install --upgrade setuptools
-        pip install numpy mpi4py pytest
 
     - name: Build python bindings
-      run: pip install .
+      run: pip install .[dev]
     - name: Run tests
       working-directory: test
       run: pytest -vv

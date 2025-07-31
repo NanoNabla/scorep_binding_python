@@ -1,5 +1,4 @@
 import os
-import sys
 from setuptools import setup, Extension
 import scorep.helper
 from scorep.instrumenter import has_c_instrumenter
@@ -26,8 +25,6 @@ if "gcc" in check_compiler:
             "GCC plug-in support is:\n{}".format(gcc_plugin)
         )
 
-
-install_requires= ["setuptools>=68.0.0"]
 
 cmodules = []
 (include, _, _, _, _) = scorep.helper.generate_compile_deps([])
@@ -65,35 +62,6 @@ cmodules.append(
 )
 
 setup(
-    name="scorep",
-    version=scorep._version.__version__,
-    description="This is a Score-P tracing package for python",
-    author="Andreas Gocht",
-    author_email="andreas.gocht@tu-dresden.de",
-    url="https://github.com/score-p/scorep_binding_python",
-    long_description="""
-This package allows tracing of python code using Score-P.
-A working Score-P version is required.
-To enable tracing it uses LD_PRELOAD to load the Score-P runtime libraries.
-Besides this, it uses the traditional python-tracing infrastructure.
-""",
     packages=["scorep", "scorep._instrumenters"],
     install_requires=install_requires,
-    ext_modules=cmodules,
-    classifiers=[
-        "Development Status :: 5 - Production/Stable",
-        "Environment :: Console",
-        "Intended Audience :: Developers",
-        "Topic :: Software Development :: Testing",
-        "Topic :: Software Development :: Quality Assurance",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
-        "Programming Language :: Python :: Implementation :: CPython",
-        "Programming Language :: Python :: Implementation :: PyPy",
-        "Operating System :: POSIX",
-        "Operating System :: Unix",
-    ],
 )

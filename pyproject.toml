@@ -1,5 +1,58 @@
 [build-system]
-requires = [
-    "setuptools >= 68.0.0",
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "scorep"
+version = "4.4.0"  # optionally keep dynamic if you read from a file
+description = "This package allows tracing of python code using Score-P."
+readme = "README.md"
+authors = [
+  { name = "Andreas Gocht", email = "andreas.gocht@tu-dresden.de" },
+  { name = "Sebastian Döbel", email = "sebastian.doebel@tu-dresden.de" },
 ]
-build-backend = "setuptools.build_meta:__legacy__"
+urls = { Homepage = "https://github.com/score-p/scorep_binding_python" }
+requires-python = ">=3.7"
+dependencies = ["setuptools>=68.0.0"] 
+
+classifiers=[
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Testing",
+  "Topic :: Software Development :: Quality Assurance",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Operating System :: POSIX",
+  "Operating System :: Unix",
+],
+
+[project.optional-dependencies]
+dev = [
+  "numpy",
+  "mpi4py",
+  "pytest",
+  "otf2",
+]
+
+[tool.setuptools.packages.find]
+include = ["scorep*"]
+
+[tool.setuptools]
+license-files = ["LICENSE"]
+
+[tool.flake8]
+max-line-length = 120
+
+[tool.pycodestyle]
+max_line_length = 120
+indent_size = 4
+
+[tool.pytest.ini_options]
+addopts = "-ra"
