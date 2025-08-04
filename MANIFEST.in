@@ -1,1 +1,3 @@
+include build_helper.py
 recursive-include src *.hpp pythoncapi_compat.h
+

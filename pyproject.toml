@@ -1,20 +1,16 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools >= 68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 
 [project]
 name = "scorep"
-version = "4.4.0"  # optionally keep dynamic if you read from a file
+version = "4.5.0"  # optionally keep dynamic if you read from a file
 description = "This package allows tracing of python code using Score-P."
 readme = "README.md"
-authors = [
-  { name = "Andreas Gocht", email = "andreas.gocht@tu-dresden.de" },
-  { name = "Sebastian Döbel", email = "sebastian.doebel@tu-dresden.de" },
-]
+authors = [ { name = "Andreas Gocht", email = "andreas.gocht@tu-dresden.de" } ]
+maintainers = [  { name = "Sebastian Döbel", email = "sebastian.doebel@tu-dresden.de" } ]
 urls = { Homepage = "https://github.com/score-p/scorep_binding_python" }
-requires-python = ">=3.7"
-dependencies = ["setuptools>=68.0.0"] 
 
 classifiers=[
   "Development Status :: 5 - Production/Stable",
@@ -33,8 +29,11 @@ classifiers=[
   "Operating System :: Unix",
 ]
 
+requires-python = ">=3.7"
+dependencies = ["setuptools >= 68.0.0"] 
+
 [project.optional-dependencies]
-dev = [
+testing = [
   "numpy",
   "mpi4py",
   "pytest",
