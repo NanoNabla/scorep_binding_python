@@ -4,6 +4,7 @@ from setuptools import setup, Extension
 
 from setuptools.command.build_ext import build_ext
 import platform
+import sysconfig
 
 import scorep.helper
 from scorep.instrumenter import has_c_instrumenter
