@@ -22,6 +22,11 @@ class DebugBuildExt(build_ext):
         print("linker_so:", self.compiler.linker_so)
         return super().build_extension(ext)
 
+if platform.python_implementation() == "PyPy":
+    cc = sysconfig.get_config_var("CXX") or "g++"
+    # Override linker to use C++
+    os.environ.setdefault("LDSHARED", f"{cc} -shared")
+
 cmodules = []
 (include, _, _, _, _) = scorep.helper.generate_compile_deps([])
 src_folder = os.path.abspath("src")
