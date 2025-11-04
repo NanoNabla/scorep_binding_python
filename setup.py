@@ -25,17 +25,82 @@ class DebugBuildExt(build_ext):
         print("compiler_so:", self.compiler.compiler_so)
         print("linker_so:", self.compiler.linker_so)
         return super().build_extension(ext)
-class FixLinkerBuildExt(build_ext):
+class FixLinkerBuildExt(_build_ext):
+    """
+    Ensure linker_so and linker_exe are properly initialized for PyPy
+    variants (fixes PyPy 3.8/3.9 where setuptools/distutils leave them None).
+    """
     def build_extension(self, ext):
         compiler = self.compiler
 
-        # If linker is missing, set it explicitly
-        if getattr(compiler, "linker_so", None) is None:
-            compiler.linker_so = compiler.compiler_cxx  # usually g++
-        if getattr(compiler, "linker_exe", None) is None:
-            compiler.linker_exe = compiler.compiler_cxx  # same fallback
+        # Helper to make a list form of an executable
+        def _to_list(x):
+            if x is None:
+                return None
+            if isinstance(x, (list, tuple)):
+                return list(x)
+            # split string into tokens if it contains whitespace; otherwise single-element list
+            return x.split()
 
-        super().build_extension(ext)        
+        # 1) Try obvious source: compiler.compiler_cxx
+        cxx = getattr(compiler, "compiler_cxx", None)
+        if cxx is None:
+            # 2) Look at environment or sysconfig or PATH
+            cxx_env = os.environ.get("CXX")
+            cxx_conf = sysconfig.get_config_var("CXX")
+            which_gpp = shutil.which("g++") or shutil.which("clang++")
+            chosen = cxx_env or cxx_conf or which_gpp
+            if chosen:
+                compiler.compiler_cxx = _to_list(chosen)
+
+        # Normalize compiler.compiler_cxx to a list (if present)
+        if getattr(compiler, "compiler_cxx", None) is not None:
+            compiler.compiler_cxx = _to_list(compiler.compiler_cxx)
+
+        # 3) Ensure linker_so exists and uses CXX if appropriate
+        if getattr(compiler, "linker_so", None) is None:
+            # prefer compiler.compiler_cxx (g++) + '-shared'
+            if getattr(compiler, "compiler_cxx", None):
+                compiler.linker_so = compiler.compiler_cxx + ["-shared"]
+            else:
+                # fallback to LDSHARED env / sysconfig / g++
+                ldshared = os.environ.get("LDSHARED") or sysconfig.get_config_var("LDSHARED")
+                if ldshared:
+                    compiler.linker_so = _to_list(ldshared)
+                else:
+                    which = shutil.which("g++") or shutil.which("gcc")
+                    if which:
+                        compiler.linker_so = [which, "-shared"]
+
+        # 4) Ensure linker_exe is set (some distutils code indexes this)
+        if getattr(compiler, "linker_exe", None) is None:
+            # prefer linker_so if it is list-like
+            if getattr(compiler, "linker_so", None):
+                compiler.linker_exe = list(compiler.linker_so)
+            elif getattr(compiler, "compiler_cxx", None):
+                compiler.linker_exe = list(compiler.compiler_cxx)
+            else:
+                # fallback to g++
+                which = shutil.which("g++") or shutil.which("gcc")
+                compiler.linker_exe = [which] if which else None
+
+        # 5) For safety, also ensure compiler_so uses CXX when building C++ ext
+        if getattr(compiler, "compiler_so", None) is not None and getattr(compiler, "compiler_cxx", None):
+            # When compiling C++ objects, some flows expect compiler_so to be compiler_cxx
+            # But do not overwrite if it obviously contains g++
+            cs = compiler.compiler_so
+            if isinstance(cs, (list, tuple)) and "g++" not in " ".join(map(str, cs)):
+                # only set if current compiler_so seems plain 'gcc' and we have a C++ compiler
+                compiler.compiler_so = list(compiler.compiler_cxx)
+
+        # Debug prints (remove before upstreaming if noisy)
+        sys.stdout.write("DEBUG: compiler.compiler_cxx=%r\n" % getattr(compiler, "compiler_cxx", None))
+        sys.stdout.write("DEBUG: compiler.compiler_so=%r\n" % getattr(compiler, "compiler_so", None))
+        sys.stdout.write("DEBUG: compiler.linker_so=%r\n" % getattr(compiler, "linker_so", None))
+        sys.stdout.write("DEBUG: compiler.linker_exe=%r\n" % getattr(compiler, "linker_exe", None))
+        sys.stdout.flush()
+
+        return super().build_extension(ext)    
 
 # if platform.python_implementation() == "PyPy":
 #     cc = sysconfig.get_config_var("CXX") or "g++"
