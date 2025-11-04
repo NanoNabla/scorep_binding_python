@@ -1,6 +1,7 @@
 import os
 import sys
 from setuptools import setup, Extension
+from setuptools.command.build_ext import build_ext
 import scorep.helper
 from scorep.instrumenter import has_c_instrumenter
 
@@ -14,6 +15,12 @@ if not ("shared=yes" in link_mode):
     )
 
 install_requires= ["setuptools>=68.0.0"]
+
+class DebugBuildExt(build_ext):
+    def build_extension(self, ext):
+        print("compiler_so:", self.compiler.compiler_so)
+        print("linker_so:", self.compiler.linker_so)
+        return super().build_extension(ext)
 
 cmodules = []
 (include, _, _, _, _) = scorep.helper.generate_compile_deps([])
@@ -50,6 +57,7 @@ cmodules.append(
     )
 )
 
+
 setup(
     name="scorep",
     version=scorep._version.__version__,
@@ -66,6 +74,7 @@ Besides this, it uses the traditional python-tracing infrastructure.
     packages=["scorep", "scorep._instrumenters"],
     install_requires=install_requires,
     ext_modules=cmodules,
+    cmdclass={"build_ext": DebugBuildExt},
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
