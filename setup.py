@@ -25,11 +25,22 @@ class DebugBuildExt(build_ext):
         print("compiler_so:", self.compiler.compiler_so)
         print("linker_so:", self.compiler.linker_so)
         return super().build_extension(ext)
+class FixLinkerBuildExt(build_ext):
+    def build_extension(self, ext):
+        compiler = self.compiler
 
-if platform.python_implementation() == "PyPy":
-    cc = sysconfig.get_config_var("CXX") or "g++"
-    # Override linker to use C++
-    os.environ.setdefault("LDSHARED", f"{cc} -shared")
+        # If linker is missing, set it explicitly
+        if getattr(compiler, "linker_so", None) is None:
+            compiler.linker_so = compiler.compiler_cxx  # usually g++
+        if getattr(compiler, "linker_exe", None) is None:
+            compiler.linker_exe = compiler.compiler_cxx  # same fallback
+
+        super().build_extension(ext)        
+
+# if platform.python_implementation() == "PyPy":
+#     cc = sysconfig.get_config_var("CXX") or "g++"
+#     # Override linker to use C++
+#     os.environ.setdefault("LDSHARED", f"{cc} -shared")
 
 cmodules = []
 (include, _, _, _, _) = scorep.helper.generate_compile_deps([])
@@ -83,7 +94,7 @@ Besides this, it uses the traditional python-tracing infrastructure.
     packages=["scorep", "scorep._instrumenters"],
     install_requires=install_requires,
     ext_modules=cmodules,
-    cmdclass={"build_ext": DebugBuildExt},
+    cmdclass={"build_ext": FixLinkerBuildExt},
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
