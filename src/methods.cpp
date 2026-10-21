@@ -1,30 +1,25 @@
 #include "methods.hpp"
 #include "scorepy/events.hpp"
+#include "scorepy/fork.hpp"
 #include "scorepy/pathUtils.hpp"
+#include "scorepy/scorep_api.hpp"
 #include <Python.h>
 #include <cstdint>
-#include <scorep/SCOREP_User_Functions.h>
 
 #include <iostream>
 
 extern "C"
 {
-
-    extern const char* SCOREP_GetExperimentDirName(void);
-
-    extern void SCOREP_RegisterExitHandler(void);
-    extern void SCOREP_FinalizeMeasurement(void);
-
     static PyObject* enable_recording(PyObject* self, PyObject* args)
     {
-        SCOREP_User_EnableRecording();
+        scorepy::scorep_api().user_enable_recording();
         Py_RETURN_NONE;
     }
 
     static PyObject* disable_recording(PyObject* self, PyObject* args)
     {
 
-        SCOREP_User_DisableRecording();
+        scorepy::scorep_api().user_disable_recording();
         Py_RETURN_NONE;
     }
 
@@ -210,7 +205,7 @@ extern "C"
     static PyObject* get_experiment_dir_name(PyObject* self, PyObject* args)
     {
 
-        return PyUnicode_FromString(SCOREP_GetExperimentDirName());
+        return PyUnicode_FromString(scorepy::scorep_api().get_experiment_dir_name());
     }
 
     static PyObject* abspath(PyObject* self, PyObject* args)
@@ -225,14 +220,23 @@ extern "C"
 
     static PyObject* force_finalize(PyObject* self, PyObject* args)
     {
-        SCOREP_FinalizeMeasurement();
+        scorepy::scorep_api().finalize_measurement();
         Py_RETURN_NONE;
     }
 
     static PyObject* reregister_exit_handler(PyObject* self, PyObject* args)
     {
-        SCOREP_RegisterExitHandler();
+        scorepy::scorep_api().register_exit_handler();
         Py_RETURN_NONE;
+    }
+
+    static PyObject* register_fork_reinit(PyObject* self, PyObject* args)
+    {
+        if (scorepy::register_fork_reinit())
+        {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
     }
 
     static PyMethodDef ScorePMethods[] = {
@@ -255,6 +259,9 @@ extern "C"
         { "force_finalize", force_finalize, METH_VARARGS, "triggers a finalize" },
         { "reregister_exit_handler", reregister_exit_handler, METH_VARARGS,
           "register a new atexit handler" },
+        { "register_fork_reinit", register_fork_reinit, METH_VARARGS,
+          "register the atfork handler that re-initializes the measurement environment "
+          "in forked children" },
         { NULL, NULL, 0, NULL } /* Sentinel */
     };
 }

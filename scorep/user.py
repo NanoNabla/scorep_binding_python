@@ -205,3 +205,19 @@ def reregister_exit_handler():
     Registers necessary atexit handler again if they have been overwritten.
     """
     scorep.instrumenter.get_instrumenter().reregister_exit_handler()
+
+
+def register_fork_reinit():
+    """
+    Registers the atfork handler that re-initializes the Score-P measurement
+    environment in forked children, so that each child measures into its own
+    experiment directory.
+
+    Requires that the measurement runtime was loaded by the binding, i.e. the
+    fork-reinit mode of `python -m scorep`
+    (SCOREP_PYTHON_BINDINGS_FORK_REINIT=on).
+
+    @return True if the atfork handler was registered.
+    """
+    import scorep._bindings
+    return scorep._bindings.register_fork_reinit()

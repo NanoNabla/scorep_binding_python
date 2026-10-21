@@ -49,13 +49,107 @@ def generate_subsystem_code(config):
     return scorep_adapter_init
 
 
-def generate(scorep_config, keep_files=False):
+_orig_dl_capture_code = """\
+/* scorep_binding_python: capture the original (non-interposed) dl* functions
+ * before Score-P initializes its libwrap/gotcha interposition. The captured
+ * pointers are used to reload the measurement environment in forked children. */
+#define __USE_GNU
+#include <dlfcn.h>
+static void* scorep_py_orig_dlopen_ = NULL;
+static void* scorep_py_orig_dlsym_ = NULL;
+static void* scorep_py_orig_dlclose_ = NULL;
+
+__attribute__((constructor(10))) static void scorep_py_capture_orig_dl(void)
+{
+    if (scorep_py_orig_dlopen_ == NULL)
+        scorep_py_orig_dlopen_ = dlsym(RTLD_NEXT, "dlopen");
+    if (scorep_py_orig_dlsym_ == NULL)
+        scorep_py_orig_dlsym_ = dlsym(RTLD_NEXT, "dlsym");
+    if (scorep_py_orig_dlclose_ == NULL)
+        scorep_py_orig_dlclose_ = dlsym(RTLD_NEXT, "dlclose");
+}
+
+void* scorep_py_get_orig_dlopen(void) { return scorep_py_orig_dlopen_; }
+void* scorep_py_get_orig_dlsym(void) { return scorep_py_orig_dlsym_; }
+void* scorep_py_get_orig_dlclose(void) { return scorep_py_orig_dlclose_; }
+"""
+
+_exit_hook_code = """\
+/* scorep_binding_python: finalize the measurement when the process exits via
+ * _exit (e.g. os._exit in multiprocessing workers), which bypasses atexit. */
+#define __USE_GNU
+#include <dlfcn.h>
+#include <signal.h>
+#include <string.h>
+
+static void (*scorep_py_finalize_)(void) = NULL;
+static int scorep_py_finalized_ = 0;
+static void (*scorep_py_real__exit_)(int) = NULL;
+
+void scorep_py_set_finalize(void (*finalize)(void))
+{
+    scorep_py_finalize_ = finalize;
+    scorep_py_finalized_ = 0;
+}
+
+__attribute__((constructor(5))) static void scorep_py_exit_hook_init(void)
+{
+    scorep_py_real__exit_ = (void (*)(int))dlsym(RTLD_NEXT, "_exit");
+}
+
+void _exit(int status) __attribute__((noreturn));
+void _exit(int status)
+{
+    if (scorep_py_finalize_ != NULL && scorep_py_finalized_ == 0)
+    {
+        scorep_py_finalized_ = 1;
+        struct sigaction action;
+        memset(&action, 0, sizeof(action));
+        action.sa_handler = SIG_IGN;
+        sigaction(SIGTERM, &action, NULL);
+        scorep_py_finalize_();
+    }
+    if (scorep_py_real__exit_ == NULL)
+        scorep_py_real__exit_ = (void (*)(int))dlsym(RTLD_NEXT, "_exit");
+    if (scorep_py_real__exit_ != NULL)
+        scorep_py_real__exit_(status);
+    for (;;)
+    {
+    }
+}
+"""
+
+
+def generate_exit_hook_lib(cc, temp_dir):
+    """Compile the _exit-interposing helper library used for fork reinit.
+
+    The library must be preloaded, as an interposer inside a dlopened library
+    would not take precedence over libc for calls from the main executable.
+    """
+    hook_source = temp_dir + "/scorep_py_exit_hook.c"
+    with open(hook_source, "w") as f:
+        f.write(_exit_hook_code)
+    hook_object = cc.compile([hook_source], output_dir=temp_dir)
+    hook_lib_name = "libscorep_py_exit_hook.so"
+    hook_lib = temp_dir + "/" + hook_lib_name
+    cc.link(
+        "scorep_py_exit_hook",
+        objects=hook_object,
+        output_filename=hook_lib_name,
+        output_dir=temp_dir,
+    )
+    return hook_lib
+
+
+def generate(scorep_config, keep_files=False, fork_reinit=False):
     """
     Uses the scorep_config to compile the scorep subsystem.
     Returns the name of the compiled subsystem, and the path of the temp folder, where the lib is located
 
     @param scorep_config scorep configuration to build subsystem
     @param keep_files whether to keep the generated files, or not.
+    @param fork_reinit build the subsystem for the fork-reinit feature: embed
+        the original dl* capture code and build the _exit-hook library.
     """
 
     (include, lib, lib_dir, macro,
@@ -88,6 +182,8 @@ def generate(scorep_config, keep_files=False):
 
     with open(temp_dir + "/scorep_init.c", "w") as f:
         f.write(scorep_adapter_init)
+        if fork_reinit:
+            f.write("\n" + _orig_dl_capture_code)
 
     subsystem_lib_name = generate_subsystem_lib_name()
 
@@ -109,10 +205,31 @@ def generate(scorep_config, keep_files=False):
         extra_postargs=linker_flags)
 
     os.environ["SCOREP_PYTHON_BINDINGS_TEMP_DIR"] = temp_dir
+
+    # Export the library locations for the C-side loader (dlopen-mode) and the
+    # fork-reinit support.
+    preload_libs = generate_ld_preload(scorep_config).split()
+    interposition_libs = [
+        path for path in preload_libs
+        if os.path.basename(path) != "libscorep_constructor.so"
+    ]
+    constructor_libs = [
+        path for path in preload_libs
+        if os.path.basename(path) == "libscorep_constructor.so"
+    ]
+    os.environ["SCOREP_PYTHON_BINDINGS_SUBSYSTEM_LIB"] = temp_dir + "/" + subsystem_lib_name
+    if interposition_libs:
+        os.environ["SCOREP_PYTHON_BINDINGS_INTERPOSITION_LIBS"] = " ".join(interposition_libs)
+    if constructor_libs:
+        os.environ["SCOREP_PYTHON_BINDINGS_CONSTRUCTOR_LIB"] = constructor_libs[0]
+
+    if fork_reinit:
+        os.environ["SCOREP_PYTHON_BINDINGS_EXIT_HOOK_LIB"] = generate_exit_hook_lib(cc, temp_dir)
+
     return subsystem_lib_name, temp_dir
 
 
-def init_environment(scorep_config, keep_files=False, verbose=False):
+def init_environment(scorep_config, keep_files=False, verbose=False, fork_reinit=False):
     """
     Set the inital needed environment variables, to get everything up an running.
     As a few variables interact with LD env vars, the program needs to be restarted after this.
@@ -120,6 +237,10 @@ def init_environment(scorep_config, keep_files=False, verbose=False):
     @param scorep_config configuration flags for score-p
     @param keep_files whether to keep the generated files, or not.
     @param verbose Set to True to output information about config used and environment variables set.
+    @param fork_reinit Enable the fork-reinit mode: instead of preloading the
+        Score-P runtime, only the tiny _exit-hook library is preloaded and the
+        Score-P runtime is loaded via dlopen by the binding. This makes the
+        runtime unloadable/reloadable, which the fork-reinit support requires.
     """
 
     if "libscorep" in os.environ.get("LD_PRELOAD", ""):
@@ -133,7 +254,7 @@ def init_environment(scorep_config, keep_files=False, verbose=False):
 
     old_env = os.environ.copy()
 
-    subsystem_lib_name, temp_dir = generate(scorep_config, keep_files)
+    subsystem_lib_name, temp_dir = generate(scorep_config, keep_files, fork_reinit)
     scorep_ld_preload = generate_ld_preload(scorep_config)
 
     if not os.access(temp_dir + "/" + subsystem_lib_name, os.X_OK):
@@ -145,7 +266,15 @@ def init_environment(scorep_config, keep_files=False, verbose=False):
 
     scorep.helper.add_to_ld_library_path(temp_dir)
 
-    preload_str = scorep_ld_preload + " " + subsystem_lib_name
+    if fork_reinit:
+        hook_lib = os.environ.get("SCOREP_PYTHON_BINDINGS_EXIT_HOOK_LIB")
+        if not hook_lib or not os.access(hook_lib, os.X_OK):
+            clean_up(keep_files=keep_files)
+            raise RuntimeError("Cannot build the Score-P _exit-hook library.")
+        os.environ["SCOREP_PYTHON_BINDINGS_DLOPEN"] = "1"
+        preload_str = hook_lib
+    else:
+        preload_str = scorep_ld_preload + " " + subsystem_lib_name
     if os.environ.get("LD_PRELOAD"):
         print_err("LD_PRELOAD is already specified. If Score-P is already loaded this might lead to errors.")
         preload_str = os.environ["LD_PRELOAD"] + " " + preload_str
@@ -183,6 +312,10 @@ def clean_up(keep_files=True):
     """
     if keep_files:
         return
-    else:
-        if os.environ.get("SCOREP_PYTHON_BINDINGS_TEMP_DIR"):
-            shutil.rmtree(os.environ["SCOREP_PYTHON_BINDINGS_TEMP_DIR"])
+    temp_dir = os.environ.get("SCOREP_PYTHON_BINDINGS_TEMP_DIR")
+    if not temp_dir:
+        return
+    # Forked children run this as well, so the directory might already be
+    # gone; drop the variable to make repeated calls no-ops.
+    del os.environ["SCOREP_PYTHON_BINDINGS_TEMP_DIR"]
+    shutil.rmtree(temp_dir, ignore_errors=True)

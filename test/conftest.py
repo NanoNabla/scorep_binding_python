@@ -1,4 +1,25 @@
+import os
+import subprocess
+
 import utils
+
+SHIM_SOURCE = os.path.join(os.path.dirname(__file__), "shim", "scorep_libwrap_restore_shim.c")
+SHIM_LIBRARY = os.path.join(os.path.dirname(__file__), "shim", "libscorep_libwrap_restore_shim.so")
+
+
+def pytest_sessionstart(session):
+    """Build the fork-reinit test shim, if a compiler is available."""
+    if os.path.isfile(SHIM_LIBRARY):
+        return
+    try:
+        subprocess.run(
+            ["cc", "-O2", "-shared", "-fPIC", "-o", SHIM_LIBRARY, SHIM_SOURCE, "-ldl"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        pass  # the shim is only needed for the optional Score-P restore path
 
 
 def pytest_assertrepr_compare(op, left, right):

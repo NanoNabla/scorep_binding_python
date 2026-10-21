@@ -112,8 +112,16 @@ def scorep_main(argv=None):
     if len(prog_argv) == 0:
         _err_exit("Did not find a script to run")
 
+    fork_reinit = os.environ.get("SCOREP_PYTHON_BINDINGS_FORK_REINIT", "").strip().lower() in (
+        "on", "true", "1")
+    if fork_reinit and any(c == "--mpi" or c.startswith("--mpp") or "--thread=omp" in c or
+                           c.startswith("--openmp") for c in scorep_config):
+        print_err("scorep: Warning: fork-reinit is not supported with MPI or OpenMP "
+                  "instrumentation. Disabling it.")
+        fork_reinit = False
+
     if os.environ.get("SCOREP_PYTHON_BINDINGS_INITIALISED") != "true":
-        scorep.subsystem.init_environment(scorep_config, keep_files, verbose)
+        scorep.subsystem.init_environment(scorep_config, keep_files, verbose, fork_reinit)
         os.environ["SCOREP_PYTHON_BINDINGS_INITIALISED"] = "true"
         """
         python -m starts the module as skript. i.e. sys.argv will loke like:
@@ -139,6 +147,10 @@ def scorep_main(argv=None):
 
     tracer = scorep.instrumenter.get_instrumenter(not no_instrumenter,
                                                   instrumenter_type)
+
+    if fork_reinit:
+        import importlib
+        importlib.import_module("scorep._bindings").register_fork_reinit()
 
     if instrumenter_file:
         with open(instrumenter_file) as f:

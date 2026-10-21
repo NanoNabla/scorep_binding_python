@@ -23,7 +23,10 @@ sources = [
     "src/methods.cpp",
     "src/scorep_bindings.cpp",
     "src/scorepy/events.cpp",
+    "src/scorepy/fork.cpp",
+    "src/scorepy/loader.cpp",
     "src/scorepy/pathUtils.cpp",
+    "src/scorepy/scorep_api.cpp",
 ]
 define_macros = [("PY_SSIZE_T_CLEAN", "1")]
 # We are using the UTF-8 string features from Python 3

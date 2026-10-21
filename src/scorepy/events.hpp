@@ -7,6 +7,7 @@
 #include <scorep/SCOREP_User_Variables.h>
 
 #include "compat.hpp"
+#include "scorep_api.hpp"
 
 namespace scorepy
 {
@@ -39,6 +40,13 @@ inline std::string make_region_name(std::string module_name, std::string_view na
 
 extern std::unordered_map<compat::PyCodeObject*, region_handle> regions;
 
+/** Drop all cached Score-P handles and region state.
+ *
+ * Must be called after the measurement environment was re-initialized
+ * (fork-reinit), as all cached handles refer to the previous environment.
+ */
+void reset_event_state(void);
+
 /** tries to enter a region. Return true on success
  *
  */
@@ -47,7 +55,7 @@ inline bool try_region_begin(compat::PyCodeObject* identifier)
     auto it = regions.find(identifier);
     if (it != regions.end())
     {
-        SCOREP_User_RegionEnter(it->second.value);
+        scorep_api().user_region_enter(it->second.value);
         return true;
     }
     else
@@ -69,7 +77,7 @@ inline bool try_region_end(compat::PyCodeObject* identifier)
     auto it_region = regions.find(identifier);
     if (it_region != regions.end())
     {
-        SCOREP_User_RegionEnd(it_region->second.value);
+        scorep_api().user_region_end(it_region->second.value);
         return true;
     }
     else
