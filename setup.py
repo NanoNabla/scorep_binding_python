@@ -13,7 +13,10 @@ if not ("shared=yes" in link_mode):
         'Score-P not build with "--enable-shared". Link mode is:\n{}'.format(link_mode)
     )
 
-install_requires= ["setuptools>=68.0.0"]
+install_requires = [
+    "setuptools>=68.0.0", 
+    "compilers.C"
+]
 
 cmodules = []
 (include, _, _, _, _) = scorep.helper.generate_compile_deps([])

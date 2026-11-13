@@ -95,12 +95,14 @@ def generate(scorep_config, keep_files=False):
     # When LD_PRELOAD is set, this leads to preloading Score-P to uname, and crashes the later tracing.
     # To avoid this, we need to do the distutils bootstrap as late as possible.
     # Setuptools does not support ccompiler.new_compiler https://github.com/pypa/setuptools/issues/4540
-    from setuptools._distutils.ccompiler import new_compiler
+    from compilers.C.base import new_compiler
+
     cc = new_compiler()
+    cc.configure_system()
 
     compiled_subsystem = cc.compile(
         [temp_dir + "/scorep_init.c"], output_dir=temp_dir)
-    cc.link(
+    cc.link_shared_object(
         "scorep_init_mpi",
         objects=compiled_subsystem,
         output_filename=subsystem_lib_name,
