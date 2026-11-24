@@ -22,7 +22,9 @@ jobs:
         key: ${{ runner.os }}-pip
 
     - name: Add Score-P repo
-      run: sudo add-apt-repository ppa:score-p/releases
+      run: |
+        sudo add-apt-repository ppa:score-p/releases
+        sudo apt update
     
     - name: Install Score-P      
       run: sudo apt-get -y install scorep
